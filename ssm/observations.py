@@ -83,6 +83,7 @@ class Observations(object):
                 in zip(datas, inputs, masks, tags, expectations):
                 lls = self.log_likelihoods(data, input, mask, tag)
                 elbo += np.sum(expected_states * lls)
+            # print(elbo)
             return elbo
 
         # define optimization target
@@ -100,6 +101,80 @@ class Observations(object):
     def neg_hessian_expected_log_dynamics_prob(self, Ez, data, input, mask, tag=None):
         raise NotImplementedError
 
+
+
+class LogisticBlockObservations(Observations):
+    def __init__(self, K, D, M=0):
+        super(LogisticBlockObservations, self).__init__(K, D, M)
+        self.mus = npr.random((K, 1)) * 10 #offset
+        self.sigmas = npr.random((K, 1)) * 10 #slope
+
+    @property
+    def params(self):
+        return self.mus, self.sigmas
+
+    @params.setter
+    def params(self, value):
+        self.mus, self.sigmas = value
+
+    def permute(self, perm):
+        self.mus = self.mus[perm]
+        self.sigmas = self.sigmas[perm]
+
+    def log_likelihoods(self, data, input, mask, tag):
+        mus, sigmas, D = self.mus, self.sigmas, self.D
+        assert(data.shape[1] == D)
+        llhs = []
+        for mu, sigma in zip(mus, sigmas):
+            xvals = np.arange(D)
+            yvals = 1 / (1 + np.exp(-(xvals - mu) / sigma))
+            # print(yvals)
+            # print(data.shape, yvals.shape)
+            llh = np.dot(data, np.log(yvals)) + np.dot((1 - data), np.log(1 - yvals))
+            # print(llh.shape)
+
+            llhs.append(llh)
+
+        return np.column_stack(llhs)
+
+    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True):
+        D, mus, sigmas = self.D, self.mus, self.sigmas
+        mu = mus[z]
+        sigma = sigmas[z]
+        xvals = np.arange(D)
+        yvals = 1 / (1 + np.exp(-(xvals - mu) / sigma))
+        samples = npr.random((D, 1)).T
+        # print(yvals, samples)
+        return samples < yvals
+
+
+    def m_step(self, expectations, datas, inputs, masks, tags,
+               optimizer="lbfgs", **kwargs):
+        """
+        If M-step cannot be done in closed form for the observations, default to SGD.
+        """
+        optimizer = dict(adam=adam, bfgs=bfgs, lbfgs=lbfgs, rmsprop=rmsprop, sgd=sgd)[optimizer]
+
+        # expected log joint
+        def _expected_log_joint(expectations):
+            elbo = self.log_prior()
+            for data, input, mask, tag, (expected_states, _, _) \
+                in zip(datas, inputs, masks, tags, expectations):
+                lls = self.log_likelihoods(data, input, mask, tag)
+                elbo += np.sum(expected_states * lls)
+            # print(elbo)
+            return elbo
+
+        # define optimization target
+        T = sum([data.shape[0] for data in datas])
+        def _objective(params, itr):
+            self.params = params
+            obj = _expected_log_joint(expectations)
+            return -obj / T
+
+        # print(self.params)
+        self.params = optimizer(_objective, self.params, bounds=[(0,None), (0,None), (0, None),
+                                                                 (0,None), (0,None), (0, None)], **kwargs)
 
 class GaussianObservations(Observations):
     def __init__(self, K, D, M=0):
@@ -124,6 +199,8 @@ class GaussianObservations(Observations):
         return np.matmul(self._sqrt_Sigmas, np.swapaxes(self._sqrt_Sigmas, -1, -2))
 
     def log_likelihoods(self, data, input, mask, tag):
+        # print(data.shape)
+        # print(self.mus.shape, self.Sigmas.shape)
         mus, Sigmas = self.mus, self.Sigmas
         if mask is not None and np.any(~mask) and not isinstance(mus, np.ndarray):
             raise Exception("Current implementation of multivariate_normal_logpdf for masked data"
@@ -133,6 +210,9 @@ class GaussianObservations(Observations):
         # stats.multivariate_normal_logpdf supports broadcasting, but we get
         # significant performance benefit if we call it with (TxD), (D,), and (D,D)
         # arrays as inputs
+        # print('here')
+        # print(data)
+        # print(data.shape)
         return np.column_stack([stats.multivariate_normal_logpdf(data, mu, Sigma)
                                for mu, Sigma in zip(mus, Sigmas)])
 

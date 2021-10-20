@@ -276,3 +276,40 @@ def trace_product(A, B):
     # We'll take the trace along the last two dimensions.
     BT = np.swapaxes(B, -1, -2)
     return np.sum(A*BT, axis=(-1, -2))
+
+
+def split_by_trials(seq, ntrials, chop='none'):
+    '''
+    seq: an array of integers, of length sum(ntrials)
+    ntrials: number of trials per block
+    splits the seq into small chunks with lengths specified by ntrials
+    chop: if none, no chopping, if min, chop to the shortest length (min(ntrials)),
+    if max, pad to the longest length (min(ntrials)),
+    '''
+    assert(len(seq) == sum(ntrials))
+    if ntrials[-1] == 0:
+        ntrials = ntrials[:-1]
+
+    minN = min(ntrials)
+    maxN = max(ntrials)
+    if len(seq) != sum(ntrials):
+        raise ValueError('ntrials must sum up to length of sequence')
+    endpoints = np.cumsum(ntrials)[:-1]
+
+    splits = np.split(seq, endpoints)
+
+    if chop == 'min':
+        # print('here')
+        # print(np.array([elem[:minN] for elem in splits]))
+        return np.array([elem[:minN] for elem in splits])
+
+    elif chop == 'none':
+        return splits
+    elif chop == 'max':
+        # pad to the max len
+        result = np.ones((len(ntrials), maxN)) * np.nan
+        for i in range(len(ntrials)):
+            result[i, 0:ntrials[i]] = splits[i]
+        return result
+    else:
+        raise ValueError('invalide chop type')

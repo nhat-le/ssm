@@ -97,6 +97,7 @@ def _multivariate_normal_logpdf(data, mus, Sigmas, Ls=None):
         Log probabilities under the multivariate Gaussian distribution(s).
     """
     # Check inputs
+    # print(data.shape)
     D = data.shape[-1]
     assert mus.shape[-1] == D
     assert Sigmas.shape[-2] == Sigmas.shape[-1] == D
@@ -141,6 +142,7 @@ def multivariate_normal_logpdf(data, mus, Sigmas, mask=None):
         Log probabilities under the multivariate Gaussian distribution(s).
     """
     # Check inputs
+    # print(data.shape)
     D = data.shape[-1]
     assert mus.shape[-1] == D
     assert Sigmas.shape[-2] == Sigmas.shape[-1] == D

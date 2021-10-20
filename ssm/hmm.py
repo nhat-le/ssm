@@ -79,6 +79,7 @@ class HMM(object):
         # This is the master list of observation classes.
         # When you create a new observation class, add it here.
         observation_classes = dict(
+            block=obs.LogisticBlockObservations,
             gaussian=obs.GaussianObservations,
             diagonal_gaussian=obs.DiagonalGaussianObservations,
             studentst=obs.MultivariateStudentsTObservations,
@@ -301,7 +302,8 @@ class HMM(object):
         for data, input, mask, tag in zip(datas, inputs, masks, tags):
             pi0 = self.init_state_distn.initial_state_distn
             Ps = self.transitions.transition_matrices(data, input, mask, tag)
-            log_likes = self.observations.log_likelihoods(data, input, mask, tag)
+            log_likes = self.observations.log_likelihoods(data, input, mask, tag) #shape: T x K
+            # print(log_likes.shape)
             ll += hmm_normalizer(pi0, Ps, log_likes)
             assert np.isfinite(ll)
         return ll
@@ -384,7 +386,8 @@ class HMM(object):
             epoch = itr // M
             m = itr % M
             i = perm[epoch][m]
-            return datas[i], inputs[i], masks[i], tags[i][i]
+            # return datas[i], inputs[i], masks[i], tags[i][i]
+            return datas[i], None, None, None
 
         # Define the objective (negative ELBO)
         def _objective(params, itr):
@@ -548,6 +551,7 @@ class HSMM(HMM):
         # This is the master list of observation classes.
         # When you create a new observation class, add it here.
         observation_classes = dict(
+            block=obs.LogisticBlockObservations,
             gaussian=obs.GaussianObservations,
             diagonal_gaussian=obs.DiagonalGaussianObservations,
             studentst=obs.MultivariateStudentsTObservations,
