@@ -50,8 +50,11 @@ def unflatten_optimizer_step(step):
 @unflatten_optimizer_step
 def sgd_step(value_and_grad, x, itr, state=None, step_size=0.1, mass=0.9):
     # Stochastic gradient descent with momentum.
+    # print('sgd', value_and_grad)
     velocity = state if state is not None else np.zeros(len(x))
+    # print('preparing')
     val, g = value_and_grad(x, itr)
+    # print('done')
     velocity = mass * velocity - (1.0 - mass) * g
     x = x + step_size * velocity
     return x, val, g, velocity

@@ -173,8 +173,87 @@ class LogisticBlockObservations(Observations):
             return -obj / T
 
         # print(self.params)
-        self.params = optimizer(_objective, self.params, bounds=[(0,None), (0,None), (0, None),
-                                                                 (0,None), (0,None), (0, None)], **kwargs)
+        self.params = optimizer(_objective, self.params, bounds=[(0,None), (0,None)] * self.K, **kwargs)
+
+
+
+class LogisticBlockObservationsLapse(Observations):
+    def __init__(self, K, D, M=0):
+        super(LogisticBlockObservationsLapse, self).__init__(K, D, M)
+        self.mus = npr.random((K, 1)) * 10 #offset
+        self.sigmas = npr.random((K, 1)) * 10 #slope
+        self.lapses = npr.random((K, 1)) * 0.05 #lapse
+
+    @property
+    def params(self):
+        return self.mus, self.sigmas, self.lapses
+
+    @params.setter
+    def params(self, value):
+        self.mus, self.sigmas, self.lapses = value
+
+    def permute(self, perm):
+        self.mus = self.mus[perm]
+        self.sigmas = self.sigmas[perm]
+        self.lapses = self.lapses[perm]
+
+    def log_likelihoods(self, data, input, mask, tag):
+        mus, sigmas, lapses, D = self.mus, self.sigmas, self.lapses, self.D
+        assert(data.shape[1] == D)
+        llhs = []
+        for mu, sigma, lapse in zip(mus, sigmas, lapses):
+            xvals = np.arange(D)
+            yvals = lapse + (1 - 2 * lapse) / (1 + np.exp(-(xvals - mu) / sigma))
+            # print(yvals.shape)
+            # print(yvals)
+            # print(data.shape, yvals.shape)
+            llh = np.dot(data, np.log(yvals)) + np.dot((1 - data), np.log(1 - yvals))
+            # print(llh.shape)
+
+            llhs.append(llh)
+
+        return np.column_stack(llhs)
+
+    def sample_x(self, z, xhist, input=None, tag=None, with_noise=True):
+        D, mus, sigmas, lapses = self.D, self.mus, self.sigmas, self.lapses
+        mu = mus[z]
+        sigma = sigmas[z]
+        lapse = lapses[z]
+        xvals = np.arange(D)
+        yvals = lapse + (1 - 2 * lapse) / (1 + np.exp(-(xvals - mu) / sigma))
+        # print(yvals.shape)
+        samples = npr.random((D, 1)).T
+        # print(samples)
+        # print(yvals, samples)
+        return samples < yvals
+
+
+    def m_step(self, expectations, datas, inputs, masks, tags,
+               optimizer="lbfgs", **kwargs):
+        """
+        If M-step cannot be done in closed form for the observations, default to SGD.
+        """
+        optimizer = dict(adam=adam, bfgs=bfgs, lbfgs=lbfgs, rmsprop=rmsprop, sgd=sgd)[optimizer]
+
+        # expected log joint
+        def _expected_log_joint(expectations):
+            elbo = self.log_prior()
+            for data, input, mask, tag, (expected_states, _, _) \
+                in zip(datas, inputs, masks, tags, expectations):
+                lls = self.log_likelihoods(data, input, mask, tag)
+                elbo += np.sum(expected_states * lls)
+            # print(elbo)
+            return elbo
+
+        # define optimization target
+        T = sum([data.shape[0] for data in datas])
+        def _objective(params, itr):
+            self.params = params
+            obj = _expected_log_joint(expectations)
+            return -obj / T
+
+        # print(self.params)
+        self.params = optimizer(_objective, self.params, bounds=[(0.01,None), (0.01,None), (0.01,None)] * self.K, **kwargs)
 
 class GaussianObservations(Observations):
     def __init__(self, K, D, M=0):

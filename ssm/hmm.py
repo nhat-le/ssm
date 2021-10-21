@@ -79,6 +79,7 @@ class HMM(object):
         # This is the master list of observation classes.
         # When you create a new observation class, add it here.
         observation_classes = dict(
+            blocklapse=obs.LogisticBlockObservationsLapse,
             block=obs.LogisticBlockObservations,
             gaussian=obs.GaussianObservations,
             diagonal_gaussian=obs.DiagonalGaussianObservations,
@@ -363,8 +364,12 @@ class HMM(object):
         # Run the optimizer
         step = dict(sgd=sgd_step, rmsprop=rmsprop_step, adam=adam_step)[optimizer]
         state = None
+        # print(optimizer)
         for itr in pbar:
+            # print(itr, state, step)
+
             self.params, val, g, state = step(value_and_grad(_objective), self.params, itr, state, **kwargs)
+            print(val, self.params)
             lls.append(-val * T)
             if verbose == 2:
               pbar.set_description("LP: {:.1f}".format(lls[-1]))
@@ -551,6 +556,7 @@ class HSMM(HMM):
         # This is the master list of observation classes.
         # When you create a new observation class, add it here.
         observation_classes = dict(
+            blocklapse=obs.LogisticBlockObservationsLapse,
             block=obs.LogisticBlockObservations,
             gaussian=obs.GaussianObservations,
             diagonal_gaussian=obs.DiagonalGaussianObservations,
