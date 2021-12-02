@@ -127,7 +127,7 @@ class LogisticBlockObservations(Observations):
         llhs = []
         for mu, sigma in zip(mus, sigmas):
             xvals = np.arange(D)
-            yvals = 1 / (1 + np.exp(-(xvals - mu) / sigma))
+            yvals = 1 / (1 + np.exp(-(xvals - mu) * sigma))
             # print(yvals)
             # print(data.shape, yvals.shape)
             llh = np.dot(data, np.log(yvals)) + np.dot((1 - data), np.log(1 - yvals))
@@ -142,7 +142,7 @@ class LogisticBlockObservations(Observations):
         mu = mus[z]
         sigma = sigmas[z]
         xvals = np.arange(D)
-        yvals = 1 / (1 + np.exp(-(xvals - mu) / sigma))
+        yvals = 1 / (1 + np.exp(-(xvals - mu) * sigma))
         samples = npr.random((D, 1)).T
         # print(yvals, samples)
         return samples < yvals
@@ -203,7 +203,7 @@ class LogisticBlockObservationsLapse(Observations):
         llhs = []
         for mu, sigma, lapse in zip(mus, sigmas, lapses):
             xvals = np.arange(D)
-            yvals = lapse + (1 - 2 * lapse) / (1 + np.exp(-(xvals - mu) / sigma))
+            yvals = lapse + (1 - 2 * lapse) / (1 + np.exp(-(xvals - mu) * sigma))
             # print(yvals.shape)
             # print(yvals)
             # print(data.shape, yvals.shape)
@@ -220,7 +220,7 @@ class LogisticBlockObservationsLapse(Observations):
         sigma = sigmas[z]
         lapse = lapses[z]
         xvals = np.arange(D)
-        yvals = lapse + (1 - 2 * lapse) / (1 + np.exp(-(xvals - mu) / sigma))
+        yvals = lapse + (1 - 2 * lapse) / (1 + np.exp(-(xvals - mu) * sigma))
         # print(yvals.shape)
         samples = npr.random((D, 1)).T
         # print(samples)
@@ -253,7 +253,9 @@ class LogisticBlockObservationsLapse(Observations):
             return -obj / T
 
         # print(self.params)
-        self.params = optimizer(_objective, self.params, bounds=[(0.01,None), (0.01,None), (0.01,None)] * self.K, **kwargs)
+        #self.params = optimizer(_objective, self.params, bounds=[(0.01, None), (0.01, None), (0.01, 0.5)] * self.K, **kwargs)
+        self.params = optimizer(_objective, self.params, bounds=[(0.01, None)] * self.K + [(0.01, None)] * self.K + \
+                                [(0.01, 0.5)] * self.K)
 
 class GaussianObservations(Observations):
     def __init__(self, K, D, M=0):
