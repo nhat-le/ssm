@@ -180,9 +180,9 @@ class LogisticBlockObservations(Observations):
 class LogisticBlockObservationsLapse(Observations):
     def __init__(self, K, D, M=0):
         super(LogisticBlockObservationsLapse, self).__init__(K, D, M)
-        self.mus = npr.random((K, 1)) * 10 #offset
-        self.sigmas = npr.random((K, 1)) * 10 #slope
-        self.lapses = npr.random((K, 1)) * 0.05 #lapse
+        self.mus = npr.random((K, 1)) * 4 #offset
+        self.sigmas = npr.random((K, 1)) * 0.2 #slope
+        self.lapses = npr.random((K, 1)) * 0.3 #lapse
 
     @property
     def params(self):
